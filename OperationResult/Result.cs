@@ -1,13 +1,91 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using OperationResult.Tags;
 
 namespace OperationResult
 {
     /// <summary>
-    /// Result of operation (without Error field)
+    /// Result of operation (no result type, only Error field)
+    /// </summary>
+    public struct Result
+    {
+        private ErrorStack? error;
+        private readonly bool isSuccess;
+        
+        public bool IsSuccess => isSuccess;
+        public bool IsError => !isSuccess;
+
+        private Result(bool isSuccess)
+        {
+            this.isSuccess = isSuccess;
+        }
+        
+        public Result Context(string message)
+        {
+            error = error is null ? message : error.Context(message);
+            return this;
+        }
+        
+        public string GetErrorMessage() => error?.ToString() ?? string.Empty;
+
+        public static implicit operator bool(Result result)
+        {
+            return result.isSuccess;
+        }
+
+        public static implicit operator Result(SuccessTag _)
+        {
+            return new(true);
+        }
+
+        public static implicit operator Result(ErrorTag _)
+        {
+            return new(false);
+        }
+
+        public static implicit operator Result(ErrorTag<string> tag)
+        {
+            return new(false)
+            {
+                error = tag.Error,
+            };
+        }
+
+        public static implicit operator Result(Exception e)
+        {
+            return new(false)
+            {
+                error = e,
+            };
+        }
+
+        public static implicit operator Result(ErrorStack e)
+        {
+            return new(false)
+            {
+                error = e,
+            };
+        }
+
+        public static implicit operator Result(List<ErrorStack> e)
+        {
+            ErrorStack error = new();
+            error.AttachAll(e);
+            return new(false)
+            {
+                error = error,
+            };
+        }
+
+        public Result<TResult2> ConvertError<TResult2>()
+        {
+            return IsError ? error : Helpers.Error();
+        }
+    }
+
+    /// <summary>
+    /// Result of operation (with string stack Error field)
     /// </summary>
     /// <typeparam name="TResult">Type of Value field</typeparam>
     public struct Result<TResult>
@@ -102,6 +180,11 @@ namespace OperationResult
             {
                 error = error,
             };
+        }
+
+        public Result Convert()
+        {
+            return IsError ? error : Helpers.Ok();
         }
     }
 
