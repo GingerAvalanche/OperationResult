@@ -1,4 +1,8 @@
-﻿using OperationResult.Tags;
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using OperationResult.Tags;
 
 namespace OperationResult
 {
@@ -8,45 +12,96 @@ namespace OperationResult
     /// <typeparam name="TResult">Type of Value field</typeparam>
     public struct Result<TResult>
     {
-        private readonly bool _isSuccess;
+        private readonly TResult? value;
+        private ErrorStack? error;
+        private readonly bool isSuccess;
 
-        public readonly TResult Value;
+        public TResult? Value => value;
 
-        public bool IsSuccess => _isSuccess;
-        public bool IsError => !_isSuccess;
+        public bool IsSuccess => isSuccess;
+        public bool IsError => !isSuccess;
 
-        private Result(bool isSuccess)
+        private Result(bool isSuccess, TResult? result = default)
         {
-            _isSuccess = isSuccess;
-            Value = default(TResult);
+            this.isSuccess = isSuccess;
+            value = result;
         }
 
-        private Result(TResult result)
+        public Result<TResult> Context(string message)
         {
-            _isSuccess = true;
-            Value = result;
+            error = error is null ? message : error.Context(message);
+            return this;
         }
+
+        public bool TryGetValue([NotNullWhen(true)] ref TResult? result, [NotNullWhen(false)] out ErrorStack? stack)
+        {
+            result = value;
+            stack = error;
+            return isSuccess;
+        }
+
+        public string GetErrorMessage() => error?.ToString() ?? string.Empty;
 
         public static implicit operator bool(Result<TResult> result)
         {
-            return result._isSuccess;
+            return result.isSuccess;
         }
 
-        public static implicit operator Result<TResult>(TResult result)
+        public static implicit operator Result<TResult>(TResult? result)
         {
-            return new Result<TResult>(result);
+            return new Result<TResult>(true, result);
         }
 
         public static implicit operator Result<TResult>(SuccessTag<TResult> tag)
         {
-            return new Result<TResult>(tag.Value);
+            return new Result<TResult>(true, tag.Value);
         }
-
-        private static Result<TResult> ErrorResult = new Result<TResult>(false);
 
         public static implicit operator Result<TResult>(ErrorTag tag)
         {
-            return ErrorResult;
+            return new(false);
+        }
+
+        public static implicit operator Result<TResult>(ErrorTag<string> tag)
+        {
+            return new(false)
+            {
+                error = tag.Error,
+            };
+        }
+
+        public static implicit operator Result<TResult>(Exception e)
+        {
+            return new(false)
+            {
+                error = e,
+            };
+        }
+
+        public static implicit operator Result<TResult>(ErrorStack e)
+        {
+            return new(false)
+            {
+                error = e,
+            };
+        }
+
+        public static implicit operator Result<TResult>(List<ErrorStack> e)
+        {
+            ErrorStack error = new();
+            error.AttachAll(e);
+            return new(false)
+            {
+                error = error,
+            };
+        }
+
+        public Result<TResult2> ConvertError<TResult2>()
+        {
+            return new(false)
+            {
+                error = error,
+            };
         }
     }
 
@@ -55,31 +110,31 @@ namespace OperationResult
     /// </summary>
     /// <typeparam name="TResult">Type of Value field</typeparam>
     /// <typeparam name="TError">Type of Error field</typeparam>
-    public struct Result<TResult, TError>
+    public readonly struct Result<TResult, TError>
     {
-        private readonly bool _isSuccess;
+        private readonly bool isSuccess;
 
-        public readonly TResult Value;
-        public readonly TError Error;
+        public TResult? Value { get; }
+        public readonly TError? Error;
 
-        public bool IsSuccess => _isSuccess;
-        public bool IsError => !_isSuccess;
+        public bool IsSuccess => isSuccess;
+        public bool IsError => !isSuccess;
 
         private Result(TResult result)
         {
-            _isSuccess = true;
+            isSuccess = true;
             Value = result;
-            Error = default(TError);
+            Error = default;
         }
 
         private Result(TError error)
         {
-            _isSuccess = false;
-            Value = default(TResult);
+            isSuccess = false;
+            Value = default;
             Error = error;
         }
 
-        public void Deconstruct(out TResult result, out TError error)
+        public void Deconstruct(out TResult? result, out TError? error)
         {
             result = Value;
             error = Error;
@@ -87,12 +142,17 @@ namespace OperationResult
 
         public static implicit operator bool(Result<TResult, TError> result)
         {
-            return result._isSuccess;
+            return result.isSuccess;
         }
 
         public static implicit operator Result<TResult, TError>(TResult result)
         {
             return new Result<TResult, TError>(result);
+        }
+
+        public static implicit operator Result<TResult, TError>(TError error)
+        {
+            return new Result<TResult, TError>(error);
         }
 
         public static implicit operator Result<TResult, TError>(SuccessTag<TResult> tag)
@@ -112,34 +172,34 @@ namespace OperationResult
     /// <typeparam name="TResult">Type of Value field</typeparam>
     /// <typeparam name="TError1">Type of first Error</typeparam>
     /// <typeparam name="TError2">Type of second Error</typeparam>
-    public struct Result<TResult, TError1, TError2>
+    public readonly struct Result<TResult, TError1, TError2>
     {
-        private readonly bool _isSuccess;
+        private readonly bool isSuccess;
 
-        public readonly TResult Value;
-        public readonly object Error;
+        public readonly TResult? Value;
+        public readonly object? Error;
 
-        public bool IsSuccess => _isSuccess;
-        public bool IsError => !_isSuccess;
+        public bool IsSuccess => isSuccess;
+        public bool IsError => !isSuccess;
 
         public bool HasError<TError>() => Error is TError;
-        public TError GetError<TError>() => (TError)Error;
+        public TError? GetError<TError>() => (TError?)Error;
 
         private Result(TResult result)
         {
-            _isSuccess = true;
+            isSuccess = true;
             Value = result;
             Error = null;
         }
 
         private Result(object error)
         {
-            _isSuccess = false;
-            Value = default(TResult);
+            isSuccess = false;
+            Value = default;
             Error = error;
         }
 
-        public void Deconstruct(out TResult result, out object error)
+        public void Deconstruct(out TResult? result, out object? error)
         {
             result = Value;
             error = Error;
@@ -147,12 +207,22 @@ namespace OperationResult
 
         public static implicit operator bool(Result<TResult, TError1, TError2> result)
         {
-            return result._isSuccess;
+            return result.isSuccess;
         }
 
         public static implicit operator Result<TResult, TError1, TError2>(TResult result)
         {
             return new Result<TResult, TError1, TError2>(result);
+        }
+
+        public static implicit operator Result<TResult, TError1, TError2>(TError1 error)
+        {
+            return new Result<TResult, TError1, TError2>(error);
+        }
+
+        public static implicit operator Result<TResult, TError1, TError2>(TError2 error)
+        {
+            return new Result<TResult, TError1, TError2>(error);
         }
 
         public static implicit operator Result<TResult, TError1, TError2>(SuccessTag<TResult> tag)
@@ -178,34 +248,34 @@ namespace OperationResult
     /// <typeparam name="TError1">Type of first Error</typeparam>
     /// <typeparam name="TError2">Type of second Error</typeparam>
     /// <typeparam name="TError3">Type of third Error</typeparam>
-    public struct Result<TResult, TError1, TError2, TError3>
+    public readonly struct Result<TResult, TError1, TError2, TError3>
     {
-        private readonly bool _isSuccess;
+        private readonly bool isSuccess;
 
-        public readonly TResult Value;
-        public readonly object Error;
+        public readonly TResult? Value;
+        public readonly object? Error;
 
-        public bool IsSuccess => _isSuccess;
-        public bool IsError => !_isSuccess;
+        public bool IsSuccess => isSuccess;
+        public bool IsError => !isSuccess;
 
         public bool HasError<TError>() => Error is TError;
-        public TError GetError<TError>() => (TError)Error;
+        public TError? GetError<TError>() => (TError?)Error;
 
         private Result(TResult result)
         {
-            _isSuccess = true;
+            isSuccess = true;
             Value = result;
             Error = null;
         }
 
         private Result(object error)
         {
-            _isSuccess = false;
-            Value = default(TResult);
+            isSuccess = false;
+            Value = default;
             Error = error;
         }
 
-        public void Deconstruct(out TResult result, out object error)
+        public void Deconstruct(out TResult? result, out object? error)
         {
             result = Value;
             error = Error;
@@ -213,12 +283,27 @@ namespace OperationResult
 
         public static implicit operator bool(Result<TResult, TError1, TError2, TError3> result)
         {
-            return result._isSuccess;
+            return result.isSuccess;
         }
 
         public static implicit operator Result<TResult, TError1, TError2, TError3>(TResult result)
         {
             return new Result<TResult, TError1, TError2, TError3>(result);
+        }
+
+        public static implicit operator Result<TResult, TError1, TError2, TError3>(TError1 error)
+        {
+            return new Result<TResult, TError1, TError2, TError3>(error);
+        }
+
+        public static implicit operator Result<TResult, TError1, TError2, TError3>(TError2 error)
+        {
+            return new Result<TResult, TError1, TError2, TError3>(error);
+        }
+
+        public static implicit operator Result<TResult, TError1, TError2, TError3>(TError3 error)
+        {
+            return new Result<TResult, TError1, TError2, TError3>(error);
         }
 
         public static implicit operator Result<TResult, TError1, TError2, TError3>(SuccessTag<TResult> tag)
