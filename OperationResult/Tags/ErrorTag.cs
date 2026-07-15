@@ -1,12 +1,14 @@
-﻿namespace OperationResult.Tags
+﻿using System;
+
+namespace OperationResult.Tags
 {
     public struct ErrorTag { }
 
-    public struct ErrorTag<TError>
+    public struct ErrorTag<E>
     {
-        internal readonly TError Error;
+        internal readonly E Error;
 
-        internal ErrorTag(TError error)
+        internal ErrorTag(E error)
         {
             Error = error;
         }

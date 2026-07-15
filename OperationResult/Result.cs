@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using OperationResult.Tags;
 
@@ -8,117 +7,175 @@ namespace OperationResult
     /// <summary>
     /// Result of operation (no result type, only Error field)
     /// </summary>
-    public readonly struct Result
+    public readonly struct Result<E>
     {
-        private readonly ErrorStack? _error;
+        public readonly E? Error;
         private readonly bool _isOk;
-        
-        public bool IsOk => _isOk;
-        public bool IsError => !_isOk;
 
         public Result()
         {
             _isOk = true;
         }
 
-        internal Result(ErrorStack stack)
+        internal Result(E error)
         {
             _isOk = false;
-            _error = stack;
-        }
-        
-        public Result Context(string message)
-        {
-            if (!_isOk) _error!.Context(message);
-            return this;
-        }
-        
-        public string GetErrorMessage() => _error?.ToString() ?? string.Empty;
-
-        public static implicit operator bool(Result result)
-        {
-            return result._isOk;
+            Error = error;
         }
 
-        public static implicit operator Result(SuccessTag _)
+        public bool TryGetValue([NotNullWhen(false)] out E? error)
+        {
+            error = Error;
+            return _isOk;
+        }
+        
+        public string GetErrorMessage() => Error?.ToString() ?? string.Empty;
+
+        public static implicit operator Result<E>(SuccessTag _)
         {
             return new();
         }
 
-        // public static implicit operator Result(ErrorTag _)
-        // {
-        //     return new(false);
-        // }
-
-        public static implicit operator Result(ErrorTag<string> tag)
+        public static implicit operator Result<E>(ErrorTag<E> tag)
         {
             return new(tag.Error);
         }
 
-        public static implicit operator Result(Exception e)
+        /// <summary>
+        /// <para>Returns true if the result is Err.</para>
+        /// </summary>
+        /// <returns></returns>
+        public bool IsErr() => !_isOk;
+
+        /// <summary>
+        /// <para>Returns true if the result is Err and the value inside of it matches a predicate.</para>
+        /// </summary>
+        /// <param name="f"></param>
+        /// <returns></returns>
+        public bool IsErrAnd(Func<E, bool> f)
         {
-            return new(e);
+            return !_isOk && f(Error!);
         }
 
-        public static implicit operator Result(ErrorStack e)
+        /// <summary>
+        /// <para>Converts from Result&lt;T, E&gt; to E?.</para>
+        ///
+        /// <para>Converts self into an E?, consuming self, and discarding the success value, if any.</para>
+        /// </summary>
+        /// <returns></returns>
+        public E? Err()
         {
-            return new(e);
+            return _isOk ? default : Error;
         }
 
-        public static implicit operator Result(List<ErrorStack> e)
+        /// <summary>
+        /// <para>Returns true if the result is Ok.</para>
+        /// </summary>
+        /// <returns></returns>
+        public bool IsOk() => _isOk;
+
+        /// <summary>
+        /// <para>Returns true if the result is Ok and a closure returns true.</para>
+        /// </summary>
+        /// <param name="f"></param>
+        /// <returns></returns>
+        public bool IsOkAnd(Func<bool> f)
         {
-            ErrorStack error = e[0];
-            error.AttachAll(e[1..]);
-            return new(error);
+            return _isOk && f();
         }
 
-        private Result<T> ConvertError<T>()
+        /// <summary>
+        /// <para>Due to language limitations, this does nothing. It's only included to match the spec.</para>
+        /// </summary>
+        /// <returns></returns>
+        public void Ok() { }
+
+        /// <summary>
+        /// <para>Returns res if the result is Ok, otherwise returns the Err value of self.</para>
+        ///
+        /// <para>Arguments passed to And are eagerly evaluated; if you are passing the result of a function call, it is recommended to use AndThen, which is lazily evaluated.</para>
+        /// </summary>
+        /// <param name="res"></param>
+        /// <typeparam name="U"></typeparam>
+        /// <returns></returns>
+        public Result<E> And(Result<E> res)
         {
-            return _error!;
+            return _isOk ? res : this;
         }
 
-        public Result<T> And<T>(Result<T> other)
+        /// <summary>
+        /// <para>Calls f if the result is Ok, otherwise returns the Err value of self.</para>
+        ///
+        /// <para>This function can be used for control flow based on Result values.</para>
+        /// </summary>
+        /// <param name="f"></param>
+        /// <typeparam name="U"></typeparam>
+        /// <returns></returns>
+        public Result<E> AndThen(Func<Result<E>> f)
         {
-            return _isOk && other.IsOk || _isOk ? other : ConvertError<T>();
+            return _isOk ? f() : this;
         }
 
-        public Result<T> AndThen<T>(Func<Result<T>> f)
+        /// <summary>
+        /// <para>Returns res if the result is Err, otherwise returns the Ok value of self.</para>
+        ///
+        /// <para>Arguments passed to Or are eagerly evaluated; if you are passing the result of a function call, it is recommended to use OrElse, which is lazily evaluated.</para>
+        /// </summary>
+        /// <param name="res"></param>
+        /// <returns></returns>
+        public Result<E> Or(Result<E> res)
         {
-            return _isOk ? f() : ConvertError<T>();
+            return _isOk ? this : res;
         }
 
-        public Result Or(Result other)
+        /// <summary>
+        /// <para>Calls f if the result is Err, otherwise returns the Ok value of self.</para>
+        ///
+        /// <para>This function can be used for control flow based on result values.</para>
+        /// </summary>
+        /// <param name="f"></param>
+        /// <returns></returns>
+        public Result<E> OrElse(Func<E, Result<E>> f)
         {
-            return _isOk ? this : other;
+            return _isOk ? this : f(Error!);
         }
 
-        public Result OrElse(Func<ErrorStack, Result> f)
-        {
-            return _isOk ? this : f(_error!);
-        }
-
-        public Result Inspect(Action f)
+        /// <summary>
+        /// <para>Calls a function with a reference to the contained value if Ok.</para>
+        ///
+        /// <para>Returns the original result.</para>
+        /// </summary>
+        /// <param name="f"></param>
+        /// <returns></returns>
+        public Result<E> Inspect(Action f)
         {
             if (_isOk) f();
             return this;
         }
 
-        public Result InspectErr(Action<ErrorStack> f)
+        /// <summary>
+        /// <para>Calls a function with a reference to the contained value if Err.</para>
+        ///
+        /// <para>Returns the original result.</para>
+        /// </summary>
+        /// <param name="f"></param>
+        /// <returns></returns>
+        public Result<E> InspectErr(Action<E> f)
         {
-            if (!_isOk) f(_error!);
+            if (!_isOk) f(Error!);
             return this;
         }
 
         /// <summary>
-        /// Maps a Result to the typed Result of a closure, leaving an Err value untouched.
+        /// <para>Maps a Result to the typed Result of a closure, leaving an Err value untouched.</para>
         /// </summary>
-        public Result<T> Map<T>(Func<T> f)
+        public Result<T, E> Map<T>(Func<T> f)
         {
-            return _isOk ? f() : ConvertError<T>();
+            return _isOk ? Helpers.Ok(f()) : Helpers.Err(Error!);
         }
 
         /// <summary>
-        /// Returns the provided default (if Err), or the result of a closure (if Ok).
+        /// <para>Returns the provided default (if Err), or the result of a closure (if Ok).</para>
         /// </summary>
         public T MapOr<T>(T def, Func<T> f)
         {
@@ -126,17 +183,17 @@ namespace OperationResult
         }
 
         /// <summary>
-        /// Maps a Result to T by applying fallback function def to a contained Err value, or the result of a closure.
+        /// <para>Maps a Result to T by applying fallback function def to a contained Err value, or the result of a closure.</para>
         ///
-        /// This function can be used to unpack a successful result while handling an error.
+        /// <para>This function can be used to unpack a successful result while handling an error.</para>
         /// </summary>
-        public T MapOrElse<T>(Func<ErrorStack, T> def, Func<T> f)
+        public T MapOrElse<T>(Func<E, T> def, Func<T> f)
         {
-            return _isOk ? f() : def(_error!);
+            return _isOk ? f() : def(Error!);
         }
 
         /// <summary>
-        /// Maps a Result to a T by the result of a closure if the result is Ok, otherwise if Err, returns the default value for the type T.
+        /// <para>Maps a Result to a T by the result of a closure if the result is Ok, otherwise if Err, returns the default value for the type T.</para>
         /// </summary>
         public T MapOrDefault<T>(Func<T> f) where T : notnull
         {
@@ -144,11 +201,24 @@ namespace OperationResult
         }
 
         /// <summary>
-        /// Throws error if this is an error. Only included to match spec.
+        /// <para>Maps a Result&lt;T, E&gt; to Result&lt;T, F&gt; by applying a function to a contained Err value, leaving an Ok value untouched.</para>
+        ///
+        /// <para>This function can be used to pass through a successful result while handling an error.</para>
+        /// </summary>
+        /// <param name="f"></param>
+        /// <typeparam name="F"></typeparam>
+        /// <returns></returns>
+        public Result<F> MapErr<F>(Func<E, Result<F>> f)
+        {
+            return !_isOk ? f(Error!) : Helpers.Ok();
+        }
+
+        /// <summary>
+        /// <para>Throws error if this is an error. Only included to match spec.</para>
         /// </summary>
         public void Unwrap()
         {
-            if (!_isOk) throw new InvalidOperationException($"Unwrap called on Err value: {_error!}");
+            if (!_isOk) throw new InvalidOperationException($"Unwrap called on Err value: {Error!}");
         }
 
         /// <summary>
@@ -157,285 +227,34 @@ namespace OperationResult
         public void UnwrapOr() { }
 
         /// <summary>
-        /// You probably want InspectErr. This is only included to match spec.
+        /// <para>You probably want InspectErr. This is only included to match spec.</para>
         /// </summary>
-        public void UnwrapOrElse(Action<ErrorStack> def)
+        public void UnwrapOrElse(Action<E> def)
         {
-            if (!_isOk) def(_error!);
+            if (!_isOk) def(Error!);
         }
 
         /// <summary>
-        /// Does nothing. Only included to match spec.
+        /// <para>Throws a specified error message if the contained value is an Err</para>
         /// </summary>
-        public void Ok() { }
-    }
-
-    /// <summary>
-    /// Result of operation (with string stack Error field)
-    /// </summary>
-    /// <typeparam name="T">Type of Value field</typeparam>
-    public readonly struct Result<T>
-    {
-        private readonly T? _value;
-        private readonly ErrorStack? _error;
-        private readonly bool _isOk;
-
-        public T? Value => _value;
-
-        public bool IsOk => _isOk;
-        public bool IsError => !_isOk;
-
-        internal Result(T? result = default)
+        /// <param name="message">Error message</param>
+        /// <exception cref="InvalidOperationException">If the contained value is an Err</exception>
+        public void Expect(string message)
         {
-            _isOk = true;
-            _value = result;
-        }
-
-        internal Result(ErrorStack stack)
-        {
-            _isOk = false;
-            _error = stack;
-        }
-
-        public Result<T> Context(string message)
-        {
-            if (!_isOk) _error!.Context(message);
-            return this;
-        }
-
-        public bool TryGetValue([NotNullWhen(true)] ref T? result, [NotNullWhen(false)] out ErrorStack? stack)
-        {
-            result = _value;
-            stack = _error;
-            return _isOk;
-        }
-
-        public string GetErrorMessage() => _error?.ToString() ?? string.Empty;
-
-        public static implicit operator bool(Result<T> result)
-        {
-            return result._isOk;
-        }
-
-        public static implicit operator Result<T>(T? result)
-        {
-            return new Result<T>(result);
-        }
-
-        public static implicit operator Result<T>(SuccessTag<T> tag)
-        {
-            return new Result<T>(tag.Value);
-        }
-
-        // public static implicit operator Result<T>(ErrorTag tag)
-        // {
-        //     return new(false);
-        // }
-
-        public static implicit operator Result<T>(ErrorTag<string> tag)
-        {
-            return new(tag.Error);
-        }
-
-        public static implicit operator Result<T>(Exception e)
-        {
-            return new(e);
-        }
-
-        public static implicit operator Result<T>(ErrorTag<Exception> tag)
-        {
-            return new(tag.Error);
-        }
-
-        public static implicit operator Result<T>(ErrorStack e)
-        {
-            return new(e);
-        }
-
-        public static implicit operator Result<T>(List<ErrorStack> e)
-        {
-            ErrorStack error = e[0];
-            error.AttachAll(e[1..]);
-            return new(error);
-        }
-
-        private Result<U> ConvertError<U>()
-        {
-            return _error!;
-        }
-
-        public Result Convert()
-        {
-            return !_isOk ? _error! : Helpers.Ok();
+            if (!_isOk) throw new InvalidOperationException(message);
         }
 
         /// <summary>
-        /// Returns res if the result is Ok, otherwise returns the Err value of self.
+        /// <para>Returns the contained Err value.</para>
         ///
-        /// Arguments passed to And are eagerly evaluated; if you are passing the result of a function call, it is recommended to use AndThen, which is lazily evaluated.
+        /// <para>Throws a specified error message if the contained value is Ok</para> 
         /// </summary>
-        /// <param name="res"></param>
-        /// <typeparam name="U"></typeparam>
-        /// <returns></returns>
-        public Result<U> And<U>(Result<U> res)
+        /// <param name="message">Error message</param>
+        /// <returns>The contained Err value</returns>
+        /// <exception cref="InvalidOperationException">If the contained value is Ok</exception>
+        public E ExpectErr(string message)
         {
-            return _isOk && res._isOk || _isOk ? res : ConvertError<U>();
-        }
-
-        /// <summary>
-        /// Calls f if the result is Ok, otherwise returns the Err value of self.
-        ///
-        /// This function can be used for control flow based on Result values.
-        /// </summary>
-        /// <param name="f"></param>
-        /// <typeparam name="U"></typeparam>
-        /// <returns></returns>
-        public Result<U> AndThen<U>(Func<T, Result<U>> f)
-        {
-            return _isOk ? f(_value!) : ConvertError<U>();
-        }
-
-        /// <summary>
-        /// Returns res if the result is Err, otherwise returns the Ok value of self.
-        ///
-        /// Arguments passed to Or are eagerly evaluated; if you are passing the result of a function call, it is recommended to use OrElse, which is lazily evaluated.
-        /// </summary>
-        /// <param name="res"></param>
-        /// <returns></returns>
-        public Result<T> Or(Result<T> res)
-        {
-            return _isOk ? this : res;
-        }
-
-        /// <summary>
-        /// Calls f if the result is Err, otherwise returns the Ok value of self.
-        ///
-        /// This function can be used for control flow based on result values.
-        /// </summary>
-        /// <param name="f"></param>
-        /// <returns></returns>
-        public Result<T> OrElse(Func<ErrorStack, Result<T>> f)
-        {
-            return _isOk ? this : f(_error!);
-        }
-
-        /// <summary>
-        /// Calls a function with a reference to the contained value if Ok.
-        ///
-        /// Returns the original result.
-        /// </summary>
-        /// <param name="f"></param>
-        /// <returns></returns>
-        public Result<T> Inspect(Action<T> f)
-        {
-            if (_isOk) f(_value!);
-            return this;
-        }
-
-        /// <summary>
-        /// Calls a function with a reference to the contained value if Err.
-        ///
-        /// Returns the original result.
-        /// </summary>
-        /// <param name="f"></param>
-        /// <returns></returns>
-        public Result<T> InspectErr(Action<ErrorStack> f)
-        {
-            if (!_isOk) f(_error!);
-            return this;
-        }
-
-        /// <summary>
-        /// Maps a Result of T to Result of U by applying a function to a contained Ok value, leaving an Err value untouched.
-        ///
-        /// This function can be used to compose the results of two functions.
-        /// </summary>
-        /// <param name="f"></param>
-        /// <typeparam name="U"></typeparam>
-        /// <returns></returns>
-        public Result<U> Map<U>(Func<T, U> f)
-        {
-            return _isOk ? f(Value!) : ConvertError<U>();
-        }
-
-        /// <summary>
-        /// Returns the provided default (if Err), or applies a function to the contained value (if Ok).
-        ///
-        /// Arguments passed to MapOr are eagerly evaluated; if you are passing the result of a function call, it is recommended to use MapOrElse, which is lazily evaluated.
-        /// </summary>
-        /// <param name="def"></param>
-        /// <param name="f"></param>
-        /// <typeparam name="U"></typeparam>
-        /// <returns></returns>
-        public U MapOr<U>(U def, Func<T, U> f)
-        {
-            return _isOk ? f(Value!) : def;
-        }
-
-        /// <summary>
-        /// Maps a Result of T to U by applying fallback function def to a contained Err value, or function f to a contained Ok value.
-        ///
-        /// This function can be used to unpack a successful result while handling an error.
-        /// </summary>
-        /// <param name="def"></param>
-        /// <param name="f"></param>
-        /// <typeparam name="U"></typeparam>
-        /// <returns></returns>
-        public U MapOrElse<U>(Func<ErrorStack, U> def, Func<T, U> f)
-        {
-            return _isOk ? f(_value!) : def(_error!);
-        }
-
-        /// <summary>
-        /// Maps a Result of T to a U by applying function f to the contained value if the result is Ok, otherwise if Err, returns the default value for the type U.
-        /// </summary>
-        /// <param name="f">The provided function to apply to the contained value.</param>
-        /// <typeparam name="U">The type to transform the contained value into.</typeparam>
-        /// <returns>The result of applying f to the contained value, or the default value for non-nullable type U</returns>
-        public U MapOrDefault<U>(Func<T, U> f) where U : notnull
-        {
-            return _isOk ? f(_value!) : default!;
-        }
-
-        /// <summary>
-        /// Returns the contained Ok value
-        /// </summary>
-        /// <returns></returns>
-        /// <exception cref="InvalidOperationException">If called on a contained Err value</exception>
-        public T Unwrap()
-        {
-            return _isOk ? _value! : throw new InvalidOperationException($"Unwrap called on Err value: {_error!}");
-        }
-
-        /// <summary>
-        /// Returns the contained Ok value or a provided default.
-        /// </summary>
-        /// <param name="def">The value to be returned if this is an Err value</param>
-        /// <returns></returns>
-        public T UnwrapOr(T def)
-        {
-            return _isOk ? _value! : def;
-        }
-
-        /// <summary>
-        /// Returns the contained Ok value or computes it from a closure.
-        /// </summary>
-        /// <param name="def">The closure</param>
-        /// <returns></returns>
-        public T UnwrapOrElse(Func<ErrorStack, T> def)
-        {
-            return _isOk ? _value! : def(_error!);
-        }
-
-        /// <summary>
-        /// If Ok, returns the contained value, otherwise if Err, returns the default value for that type.
-        ///
-        /// Due to language limitations, this function replaces UnwrapOrDefault, as they would serve the same purpose.
-        /// </summary>
-        /// <returns></returns>
-        public T? Ok()
-        {
-            return _isOk ? _value : default;
+            return !_isOk ? Error! : throw new InvalidOperationException(message);
         }
     }
 
@@ -446,47 +265,36 @@ namespace OperationResult
     /// <typeparam name="E">Type of Error field</typeparam>
     public readonly struct Result<T, E>
     {
-        private readonly bool isSuccess;
+        private readonly T? _value;
+        internal readonly E? Error;
+        private readonly bool _isOk;
 
-        public T? Value { get; }
-        public readonly E? Error;
+        public T? Value => _value;
 
-        public bool IsSuccess => isSuccess;
-        public bool IsError => !isSuccess;
-
-        private Result(T result)
+        internal Result(T? result)
         {
-            isSuccess = true;
-            Value = result;
-            Error = default;
+            _isOk = true;
+            _value = result;
         }
 
-        private Result(E error)
+        internal Result(E? error)
         {
-            isSuccess = false;
-            Value = default;
+            _isOk = false;
             Error = error;
         }
 
-        public void Deconstruct(out T? result, out E? error)
+        public bool TryGetValue([NotNullWhen(true)] ref T? result, [NotNullWhen(false)] out E? error)
         {
-            result = Value;
+            result = _value;
             error = Error;
+            return _isOk;
         }
 
-        public static implicit operator bool(Result<T, E> result)
-        {
-            return result.isSuccess;
-        }
+        public string GetErrorMessage() => Error?.ToString() ?? string.Empty;
 
-        public static implicit operator Result<T, E>(T result)
+        public static implicit operator Result<T, E>(T? result)
         {
             return new Result<T, E>(result);
-        }
-
-        public static implicit operator Result<T, E>(E error)
-        {
-            return new Result<T, E>(error);
         }
 
         public static implicit operator Result<T, E>(SuccessTag<T> tag)
@@ -497,6 +305,238 @@ namespace OperationResult
         public static implicit operator Result<T, E>(ErrorTag<E> tag)
         {
             return new Result<T, E>(tag.Error);
+        }
+
+        private Result<U, E> ConvertError<U>()
+        {
+            return Helpers.Err(Error!);
+        }
+
+        /// <summary>
+        /// <para>Returns true if the result is Err.</para>
+        /// </summary>
+        /// <returns></returns>
+        public bool IsErr() => !_isOk;
+
+        /// <summary>
+        /// <para>Returns true if the result is Err and the value inside of it matches a predicate.</para>
+        /// </summary>
+        /// <param name="f"></param>
+        /// <returns></returns>
+        public bool IsErrAnd(Func<E, bool> f)
+        {
+            return !_isOk && f(Error!);
+        }
+
+        /// <summary>
+        /// <para>Converts from Result&lt;T, E&gt; to E?.</para>
+        ///
+        /// <para>Converts self into an E?, consuming self, and discarding the success value, if any.</para>
+        /// </summary>
+        /// <returns></returns>
+        public E? Err()
+        {
+            return _isOk ? default : Error;
+        }
+
+        /// <summary>
+        /// <para>Returns true if the result is Ok.</para>
+        /// </summary>
+        /// <returns></returns>
+        public bool IsOk() => _isOk;
+
+        /// <summary>
+        /// <para>Returns true if the result is Ok and the value inside of it matches a predicate.</para>
+        /// </summary>
+        /// <param name="f"></param>
+        /// <returns></returns>
+        public bool IsOkAnd(Func<T, bool> f)
+        {
+            return _isOk && f(_value!);
+        }
+
+        /// <summary>
+        /// <para>Converts from Result&lt;T, E&gt; to T?.</para>
+        ///
+        /// <para>Converts self into an T?, consuming self, and converting the error to None, if any.</para>
+        ///
+        /// <para>Due to language limitations, this function replaces UnwrapOrDefault, as they would serve the same purpose.</para>
+        /// </summary>
+        /// <returns></returns>
+        public T? Ok()
+        {
+            return _isOk ? _value : default;
+        }
+
+        /// <summary>
+        /// <para>Returns res if the result is Ok, otherwise returns the Err value of self.</para>
+        ///
+        /// <para>Arguments passed to And are eagerly evaluated; if you are passing the result of a function call, it is recommended to use AndThen, which is lazily evaluated.</para>
+        /// </summary>
+        /// <param name="res"></param>
+        /// <typeparam name="U"></typeparam>
+        /// <returns></returns>
+        public Result<U, E> And<U>(Result<U, E> res)
+        {
+            return _isOk && res._isOk || _isOk ? res : ConvertError<U>();
+        }
+
+        /// <summary>
+        /// <para>Calls f if the result is Ok, otherwise returns the Err value of self.</para>
+        ///
+        /// <para>This function can be used for control flow based on Result values.</para>
+        /// </summary>
+        /// <param name="f"></param>
+        /// <typeparam name="U"></typeparam>
+        /// <returns></returns>
+        public Result<U, E> AndThen<U>(Func<T, Result<U, E>> f)
+        {
+            return _isOk ? f(_value!) : ConvertError<U>();
+        }
+
+        /// <summary>
+        /// <para>Returns res if the result is Err, otherwise returns the Ok value of self.</para>
+        ///
+        /// <para>Arguments passed to Or are eagerly evaluated; if you are passing the result of a function call, it is recommended to use OrElse, which is lazily evaluated.</para>
+        /// </summary>
+        /// <param name="res"></param>
+        /// <returns></returns>
+        public Result<T, E> Or(Result<T, E> res)
+        {
+            return _isOk ? this : res;
+        }
+
+        /// <summary>
+        /// <para>Calls f if the result is Err, otherwise returns the Ok value of self.</para>
+        ///
+        /// <para>This function can be used for control flow based on result values.</para>
+        /// </summary>
+        /// <param name="f"></param>
+        /// <returns></returns>
+        public Result<T, E> OrElse(Func<E, Result<T, E>> f)
+        {
+            return _isOk ? this : f(Error!);
+        }
+
+        /// <summary>
+        /// <para>Calls a function with a reference to the contained value if Ok.</para>
+        ///
+        /// <para>Returns the original result.</para>
+        /// </summary>
+        /// <param name="f"></param>
+        /// <returns></returns>
+        public Result<T, E> Inspect(Action<T> f)
+        {
+            if (_isOk) f(_value!);
+            return this;
+        }
+
+        /// <summary>
+        /// <para>Calls a function with a reference to the contained value if Err.</para>
+        ///
+        /// <para>Returns the original result.</para>
+        /// </summary>
+        /// <param name="f"></param>
+        /// <returns></returns>
+        public Result<T, E> InspectErr(Action<E> f)
+        {
+            if (!_isOk) f(Error!);
+            return this;
+        }
+
+        /// <summary>
+        /// <para>Maps a Result&lt;T, E&gt; to Result&lt;U, E&gt; by applying a function to a contained Ok value, leaving an Err value untouched.</para>
+        ///
+        /// <para>This function can be used to compose the results of two functions.</para>
+        /// </summary>
+        /// <param name="f"></param>
+        /// <typeparam name="U"></typeparam>
+        /// <returns></returns>
+        public Result<U, E> Map<U>(Func<T, U> f)
+        {
+            return _isOk ? f(_value!) : ConvertError<U>();
+        }
+
+        /// <summary>
+        /// <para>Returns the provided default (if Err), or applies a function to the contained value (if Ok).</para>
+        ///
+        /// <para>Arguments passed to MapOr are eagerly evaluated; if you are passing the result of a function call, it is recommended to use MapOrElse, which is lazily evaluated.</para>
+        /// </summary>
+        /// <param name="def"></param>
+        /// <param name="f"></param>
+        /// <typeparam name="U"></typeparam>
+        /// <returns></returns>
+        public U MapOr<U>(U def, Func<T, U> f)
+        {
+            return _isOk ? f(_value!) : def;
+        }
+
+        /// <summary>
+        /// <para>Maps a Result&lt;T, E&gt; to U by applying fallback function def to a contained Err value, or function f to a contained Ok value.</para>
+        ///
+        /// <para>This function can be used to unpack a successful result while handling an error.</para>
+        /// </summary>
+        /// <param name="def"></param>
+        /// <param name="f"></param>
+        /// <typeparam name="U"></typeparam>
+        /// <returns></returns>
+        public U MapOrElse<U>(Func<E, U> def, Func<T, U> f)
+        {
+            return _isOk ? f(_value!) : def(Error!);
+        }
+
+        /// <summary>
+        /// <para>Maps a Result&lt;T, E&gt; to a U by applying function f to the contained value if the result is Ok, otherwise if Err, returns the default value for the type U.</para>
+        /// </summary>
+        /// <param name="f">The provided function to apply to the contained value.</param>
+        /// <typeparam name="U">The type to transform the contained value into.</typeparam>
+        /// <returns>The result of applying f to the contained value, or the default value for non-nullable type U</returns>
+        public U MapOrDefault<U>(Func<T, U> f) where U : notnull
+        {
+            return _isOk ? f(_value!) : default!;
+        }
+
+        /// <summary>
+        /// <para>Maps a Result&lt;T, E&gt; to Result&lt;T, F&gt; by applying a function to a contained Err value, leaving an Ok value untouched.</para>
+        ///
+        /// <para>This function can be used to pass through a successful result while handling an error.</para>
+        /// </summary>
+        /// <param name="f"></param>
+        /// <typeparam name="F"></typeparam>
+        /// <returns></returns>
+        public Result<T, F> MapErr<F>(Func<E, Result<T, F>> f)
+        {
+            return !_isOk ? f(Error!) : Helpers.Ok(_value!);
+        }
+
+        /// <summary>
+        /// <para>Returns the contained Ok value</para>
+        /// </summary>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException">If called on a contained Err value</exception>
+        public T Unwrap()
+        {
+            return _isOk ? _value! : throw new InvalidOperationException($"Unwrap called on Err value: {Error!}");
+        }
+
+        /// <summary>
+        /// <para>Returns the contained Ok value or a provided default.</para>
+        /// </summary>
+        /// <param name="def">The value to be returned if this is an Err value</param>
+        /// <returns></returns>
+        public T UnwrapOr(T def)
+        {
+            return _isOk ? _value! : def;
+        }
+
+        /// <summary>
+        /// <para>Returns the contained Ok value or computes it from a closure.</para>
+        /// </summary>
+        /// <param name="def">The closure</param>
+        /// <returns></returns>
+        public T UnwrapOrElse(Func<E, T> def)
+        {
+            return _isOk ? _value! : def(Error!);
         }
     }
 

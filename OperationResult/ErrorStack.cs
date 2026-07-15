@@ -5,70 +5,72 @@ using System.Text;
 
 namespace OperationResult;
 
-public class ErrorStack
+[Serializable]
+public class ErrorStack : Exception
 {
-    private string _message;
-    private ErrorStack? _child;
+    private LinkedList<string> context = [];
+    private string? stackTrace;
+    public string? Stack => stackTrace;
     
     private ErrorStack() {}
 
-    public ErrorStack(string message)
+    public ErrorStack(string message, string? callSite = null) : base(message)
     {
-        _message = message;
+        stackTrace = callSite;
     }
     public static implicit operator ErrorStack(string message) => new(message);
 
-    public ErrorStack(Exception e)
+    public ErrorStack(string message, Exception innerException, string? callSite = null) : base(message, innerException)
     {
-        _message = $"{e.GetType().ToString().Split(".").Last()}: {e.Message}";
-    }
-    public static implicit operator ErrorStack(Exception e) => new(e);
-
-    public void Attach(ErrorStack child)
-    {
-        _child = child;
+        stackTrace = callSite ?? innerException.StackTrace;
     }
 
-    public void AttachAll(IEnumerable<ErrorStack> children)
+    public ErrorStack Context(string message)
     {
-        ErrorStack parent = this;
-        foreach (var child in children)
-        {
-            parent._child = child;
-            parent = child;
-        }
-    }
-
-    public IEnumerable<string> GetStackMessages()
-    {
-        ErrorStack? child = _child;
-        while (child != null)
-        {
-            yield return child._message;
-            child = child._child;
-        }
+        context.AddFirst(message);
+        return this;
     }
 
     public override string ToString()
     {
         StringBuilder str = new();
-        str.AppendLine(_message)
-            .AppendLine()
-            .AppendLine()
-            .AppendLine("Caused by:")
-            .AppendLine($"  0. {_message}");
-        int i = 0;
-        foreach (var value in GetStackMessages())
+        if (InnerException != null)
         {
-            str.AppendLine($"  {++i}. {value}");
+            str.Append(InnerException.GetType().ToString().Split(".").Last())
+                .Append(": ")
+                .Append(InnerException.Message);
+        }
+        else if (Message != string.Empty)
+        {
+            str.Append(Message);
+        }
+        else if (context.Last != null)
+        {
+            str.Append(context.Last.Value);
+        }
+
+        str.AppendLine().AppendLine().Append("Caused by:").AppendLine();
+
+        int i = -1;
+        foreach (var value in context)
+        {
+            str.Append("  ").Append(++i).Append(". ").Append(value).AppendLine();
+        }
+
+        if (Message != string.Empty)
+        {
+            str.Append("  ").Append(++i).Append(". ").Append(Message);
+        }
+        if (InnerException != null)
+        {
+            str.AppendLine()
+                .Append("  ")
+                .Append(++i)
+                .Append(". ")
+                .Append(InnerException.GetType().ToString().Split(".").Last())
+                .Append(": ")
+                .Append(InnerException.Message);
         }
         return str.ToString();
-    }
-
-    public ErrorStack Context(string message)
-    {
-        ErrorStack parent = message;
-        parent.Attach(this);
-        return parent;
     }
 }
