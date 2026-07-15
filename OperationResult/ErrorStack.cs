@@ -1,62 +1,72 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 
 namespace OperationResult;
 
 public class ErrorStack
 {
-    private string? _error;
-    private List<ErrorStack>? _children;
+    private string _message;
+    private ErrorStack? _child;
     
-    public ErrorStack() {}
+    private ErrorStack() {}
 
     public ErrorStack(string message)
     {
-        _error = message;
+        _message = message;
     }
     public static implicit operator ErrorStack(string message) => new(message);
 
     public ErrorStack(Exception e)
     {
-        _error = e.ToString();
+        _message = $"{e.GetType().ToString().Split(".").Last()}: {e.Message}";
     }
     public static implicit operator ErrorStack(Exception e) => new(e);
 
     public void Attach(ErrorStack child)
     {
-        _children ??= new List<ErrorStack>();
-        _children.Add(child);
+        _child = child;
     }
 
     public void AttachAll(IEnumerable<ErrorStack> children)
     {
-        _children ??= new List<ErrorStack>();
-        _children.AddRange(children);
+        ErrorStack parent = this;
+        foreach (var child in children)
+        {
+            parent._child = child;
+            parent = child;
+        }
     }
 
-    public IEnumerable<string> GetAllErrors()
+    public IEnumerable<string> GetStackMessages()
     {
-        yield return _error ?? "No context given";
-        if (_children == null) yield break;
-        foreach (var t in _children)
+        ErrorStack? child = _child;
+        while (child != null)
         {
-            foreach (var message in t.GetAllErrors())
-                yield return $"  {message}";
+            yield return child._message;
+            child = child._child;
         }
     }
 
     public override string ToString()
     {
-        return string.Join('\n', GetAllErrors());
+        StringBuilder str = new();
+        str.AppendLine(_message)
+            .AppendLine()
+            .AppendLine()
+            .AppendLine("Caused by:")
+            .AppendLine($"  0. {_message}");
+        int i = 0;
+        foreach (var value in GetStackMessages())
+        {
+            str.AppendLine($"  {++i}. {value}");
+        }
+        return str.ToString();
     }
 
     public ErrorStack Context(string message)
     {
-        if (_error == null)
-        {
-            _error = message;
-            return this;
-        }
         ErrorStack parent = message;
         parent.Attach(this);
         return parent;
