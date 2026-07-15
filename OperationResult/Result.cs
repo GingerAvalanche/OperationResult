@@ -1,4 +1,5 @@
-﻿using System;
+﻿// ReSharper disable InconsistentNaming
+using System;
 using System.Diagnostics.CodeAnalysis;
 using OperationResult.Tags;
 
@@ -9,7 +10,7 @@ namespace OperationResult
     /// </summary>
     public readonly struct Result<E>
     {
-        public readonly E? Error;
+        private readonly E? _error;
         private readonly bool _isOk;
 
         public Result()
@@ -20,16 +21,16 @@ namespace OperationResult
         internal Result(E error)
         {
             _isOk = false;
-            Error = error;
+            _error = error;
         }
 
         public bool TryGetValue([NotNullWhen(false)] out E? error)
         {
-            error = Error;
+            error = _error;
             return _isOk;
         }
         
-        public string GetErrorMessage() => Error?.ToString() ?? string.Empty;
+        public string GetErrorMessage() => _error?.ToString() ?? string.Empty;
 
         public static implicit operator Result<E>(SuccessTag _)
         {
@@ -54,7 +55,7 @@ namespace OperationResult
         /// <returns></returns>
         public bool IsErrAnd(Func<E, bool> f)
         {
-            return !_isOk && f(Error!);
+            return !_isOk && f(_error!);
         }
 
         /// <summary>
@@ -65,7 +66,7 @@ namespace OperationResult
         /// <returns></returns>
         public E? Err()
         {
-            return _isOk ? default : Error;
+            return _isOk ? default : _error;
         }
 
         /// <summary>
@@ -97,7 +98,6 @@ namespace OperationResult
         /// is recommended to use AndThen, which is lazily evaluated.</para>
         /// </summary>
         /// <param name="res"></param>
-        /// <typeparam name="U"></typeparam>
         /// <returns></returns>
         public Result<E> And(Result<E> res)
         {
@@ -110,7 +110,6 @@ namespace OperationResult
         /// <para>This function can be used for control flow based on Result values.</para>
         /// </summary>
         /// <param name="f"></param>
-        /// <typeparam name="U"></typeparam>
         /// <returns></returns>
         public Result<E> AndThen(Func<Result<E>> f)
         {
@@ -139,7 +138,7 @@ namespace OperationResult
         /// <returns></returns>
         public Result<E> OrElse(Func<E, Result<E>> f)
         {
-            return _isOk ? this : f(Error!);
+            return _isOk ? this : f(_error!);
         }
 
         /// <summary>
@@ -164,7 +163,7 @@ namespace OperationResult
         /// <returns></returns>
         public Result<E> InspectErr(Action<E> f)
         {
-            if (!_isOk) f(Error!);
+            if (!_isOk) f(_error!);
             return this;
         }
 
@@ -173,7 +172,7 @@ namespace OperationResult
         /// </summary>
         public Result<T, E> Map<T>(Func<T> f)
         {
-            return _isOk ? Helpers.Ok(f()) : Helpers.Err(Error!);
+            return _isOk ? Helpers.Ok(f()) : Helpers.Err(_error!);
         }
 
         /// <summary>
@@ -192,7 +191,7 @@ namespace OperationResult
         /// </summary>
         public T MapOrElse<T>(Func<E, T> def, Func<T> f)
         {
-            return _isOk ? f() : def(Error!);
+            return _isOk ? f() : def(_error!);
         }
 
         /// <summary>
@@ -215,7 +214,7 @@ namespace OperationResult
         /// <returns></returns>
         public Result<F> MapErr<F>(Func<E, Result<F>> f)
         {
-            return !_isOk ? f(Error!) : Helpers.Ok();
+            return !_isOk ? f(_error!) : Helpers.Ok();
         }
 
         /// <summary>
@@ -223,7 +222,7 @@ namespace OperationResult
         /// </summary>
         public void Unwrap()
         {
-            if (!_isOk) throw new InvalidOperationException($"Unwrap called on Err value: {Error!}");
+            if (!_isOk) throw new InvalidOperationException($"Unwrap called on Err value: {_error!}");
         }
 
         /// <summary>
@@ -236,7 +235,7 @@ namespace OperationResult
         /// </summary>
         public void UnwrapOrElse(Action<E> def)
         {
-            if (!_isOk) def(Error!);
+            if (!_isOk) def(_error!);
         }
 
         /// <summary>
@@ -259,7 +258,7 @@ namespace OperationResult
         /// <exception cref="InvalidOperationException">If the contained value is Ok</exception>
         public E ExpectErr(string message)
         {
-            return !_isOk ? Error! : throw new InvalidOperationException(message);
+            return !_isOk ? _error! : throw new InvalidOperationException(message);
         }
     }
 
@@ -276,13 +275,13 @@ namespace OperationResult
 
         public T? Value => _value;
 
-        internal Result(T? result)
+        private Result(T? result)
         {
             _isOk = true;
             _value = result;
         }
 
-        internal Result(E? error)
+        private Result(E? error)
         {
             _isOk = false;
             Error = error;
@@ -589,27 +588,27 @@ namespace OperationResult
     /// <typeparam name="E2">Type of second Error</typeparam>
     public readonly struct Result<T, E1, E2>
     {
-        private readonly bool isSuccess;
+        private readonly bool _isSuccess;
 
         public readonly T? Value;
         public readonly object? Error;
 
-        public bool IsSuccess => isSuccess;
-        public bool IsError => !isSuccess;
+        public bool IsSuccess => _isSuccess;
+        public bool IsError => !_isSuccess;
 
         public bool HasError<E>() => Error is E;
         public E? GeE<E>() => (E?)Error;
 
         private Result(T result)
         {
-            isSuccess = true;
+            _isSuccess = true;
             Value = result;
             Error = null;
         }
 
         private Result(object error)
         {
-            isSuccess = false;
+            _isSuccess = false;
             Value = default;
             Error = error;
         }
@@ -622,7 +621,7 @@ namespace OperationResult
 
         public static implicit operator bool(Result<T, E1, E2> result)
         {
-            return result.isSuccess;
+            return result._isSuccess;
         }
 
         public static implicit operator Result<T, E1, E2>(T result)
