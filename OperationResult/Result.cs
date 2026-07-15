@@ -93,7 +93,8 @@ namespace OperationResult
         /// <summary>
         /// <para>Returns res if the result is Ok, otherwise returns the Err value of self.</para>
         ///
-        /// <para>Arguments passed to And are eagerly evaluated; if you are passing the result of a function call, it is recommended to use AndThen, which is lazily evaluated.</para>
+        /// <para>Arguments passed to And are eagerly evaluated; if you are passing the result of a function call, it
+        /// is recommended to use AndThen, which is lazily evaluated.</para>
         /// </summary>
         /// <param name="res"></param>
         /// <typeparam name="U"></typeparam>
@@ -119,7 +120,8 @@ namespace OperationResult
         /// <summary>
         /// <para>Returns res if the result is Err, otherwise returns the Ok value of self.</para>
         ///
-        /// <para>Arguments passed to Or are eagerly evaluated; if you are passing the result of a function call, it is recommended to use OrElse, which is lazily evaluated.</para>
+        /// <para>Arguments passed to Or are eagerly evaluated; if you are passing the result of a function call, it is
+        /// recommended to use OrElse, which is lazily evaluated.</para>
         /// </summary>
         /// <param name="res"></param>
         /// <returns></returns>
@@ -183,7 +185,8 @@ namespace OperationResult
         }
 
         /// <summary>
-        /// <para>Maps a Result to T by applying fallback function def to a contained Err value, or the result of a closure.</para>
+        /// <para>Maps a Result to T by applying fallback function def to a contained Err value, or the result of a
+        /// closure.</para>
         ///
         /// <para>This function can be used to unpack a successful result while handling an error.</para>
         /// </summary>
@@ -193,7 +196,8 @@ namespace OperationResult
         }
 
         /// <summary>
-        /// <para>Maps a Result to a T by the result of a closure if the result is Ok, otherwise if Err, returns the default value for the type T.</para>
+        /// <para>Maps a Result to a T by the result of a closure if the result is Ok, otherwise if Err, returns the
+        /// default value for the type T.</para>
         /// </summary>
         public T MapOrDefault<T>(Func<T> f) where T : notnull
         {
@@ -201,7 +205,8 @@ namespace OperationResult
         }
 
         /// <summary>
-        /// <para>Maps a Result&lt;T, E&gt; to Result&lt;T, F&gt; by applying a function to a contained Err value, leaving an Ok value untouched.</para>
+        /// <para>Maps a Result&lt;T, E&gt; to Result&lt;T, F&gt; by applying a function to a contained Err value,
+        /// leaving an Ok value untouched.</para>
         ///
         /// <para>This function can be used to pass through a successful result while handling an error.</para>
         /// </summary>
@@ -360,7 +365,8 @@ namespace OperationResult
         ///
         /// <para>Converts self into an T?, consuming self, and converting the error to None, if any.</para>
         ///
-        /// <para>Due to language limitations, this function replaces UnwrapOrDefault, as they would serve the same purpose.</para>
+        /// <para>Due to language limitations, this function replaces UnwrapOrDefault, as they would serve the same
+        /// purpose.</para>
         /// </summary>
         /// <returns></returns>
         public T? Ok()
@@ -371,7 +377,8 @@ namespace OperationResult
         /// <summary>
         /// <para>Returns res if the result is Ok, otherwise returns the Err value of self.</para>
         ///
-        /// <para>Arguments passed to And are eagerly evaluated; if you are passing the result of a function call, it is recommended to use AndThen, which is lazily evaluated.</para>
+        /// <para>Arguments passed to And are eagerly evaluated; if you are passing the result of a function call, it
+        /// is recommended to use AndThen, which is lazily evaluated.</para>
         /// </summary>
         /// <param name="res"></param>
         /// <typeparam name="U"></typeparam>
@@ -397,7 +404,8 @@ namespace OperationResult
         /// <summary>
         /// <para>Returns res if the result is Err, otherwise returns the Ok value of self.</para>
         ///
-        /// <para>Arguments passed to Or are eagerly evaluated; if you are passing the result of a function call, it is recommended to use OrElse, which is lazily evaluated.</para>
+        /// <para>Arguments passed to Or are eagerly evaluated; if you are passing the result of a function call, it is
+        /// recommended to use OrElse, which is lazily evaluated.</para>
         /// </summary>
         /// <param name="res"></param>
         /// <returns></returns>
@@ -445,7 +453,8 @@ namespace OperationResult
         }
 
         /// <summary>
-        /// <para>Maps a Result&lt;T, E&gt; to Result&lt;U, E&gt; by applying a function to a contained Ok value, leaving an Err value untouched.</para>
+        /// <para>Maps a Result&lt;T, E&gt; to Result&lt;U, E&gt; by applying a function to a contained Ok value,
+        /// leaving an Err value untouched.</para>
         ///
         /// <para>This function can be used to compose the results of two functions.</para>
         /// </summary>
@@ -460,7 +469,8 @@ namespace OperationResult
         /// <summary>
         /// <para>Returns the provided default (if Err), or applies a function to the contained value (if Ok).</para>
         ///
-        /// <para>Arguments passed to MapOr are eagerly evaluated; if you are passing the result of a function call, it is recommended to use MapOrElse, which is lazily evaluated.</para>
+        /// <para>Arguments passed to MapOr are eagerly evaluated; if you are passing the result of a function call, it
+        /// is recommended to use MapOrElse, which is lazily evaluated.</para>
         /// </summary>
         /// <param name="def"></param>
         /// <param name="f"></param>
@@ -472,7 +482,8 @@ namespace OperationResult
         }
 
         /// <summary>
-        /// <para>Maps a Result&lt;T, E&gt; to U by applying fallback function def to a contained Err value, or function f to a contained Ok value.</para>
+        /// <para>Maps a Result&lt;T, E&gt; to U by applying fallback function def to a contained Err value, or
+        /// function f to a contained Ok value.</para>
         ///
         /// <para>This function can be used to unpack a successful result while handling an error.</para>
         /// </summary>
@@ -486,18 +497,21 @@ namespace OperationResult
         }
 
         /// <summary>
-        /// <para>Maps a Result&lt;T, E&gt; to a U by applying function f to the contained value if the result is Ok, otherwise if Err, returns the default value for the type U.</para>
+        /// <para>Maps a Result&lt;T, E&gt; to a U by applying function f to the contained value if the result is Ok,
+        /// otherwise if Err, returns the default value for the type U.</para>
         /// </summary>
         /// <param name="f">The provided function to apply to the contained value.</param>
         /// <typeparam name="U">The type to transform the contained value into.</typeparam>
-        /// <returns>The result of applying f to the contained value, or the default value for non-nullable type U</returns>
+        /// <returns>The result of applying f to the contained value, or the default value for non-nullable type
+        /// U</returns>
         public U MapOrDefault<U>(Func<T, U> f) where U : notnull
         {
             return _isOk ? f(_value!) : default!;
         }
 
         /// <summary>
-        /// <para>Maps a Result&lt;T, E&gt; to Result&lt;T, F&gt; by applying a function to a contained Err value, leaving an Ok value untouched.</para>
+        /// <para>Maps a Result&lt;T, E&gt; to Result&lt;T, F&gt; by applying a function to a contained Err value,
+        /// leaving an Ok value untouched.</para>
         ///
         /// <para>This function can be used to pass through a successful result while handling an error.</para>
         /// </summary>
@@ -537,6 +551,33 @@ namespace OperationResult
         public T UnwrapOrElse(Func<E, T> def)
         {
             return _isOk ? _value! : def(Error!);
+        }
+
+        /// <summary>
+        /// <para>Returns the contained Ok value, consuming the self value.</para>
+        ///
+        /// <para>Because this function may directly throw an error, its use is generally discouraged. Instead, prefer
+        /// to use TryGetValue and handle the Err case explicitly, or call UnwrapOr, UnwrapOrElse, or Ok (not
+        /// UnwrapOrDefault, as language limitations would have rendered that a duplicate of Ok).</para>
+        /// </summary>
+        /// <param name="message">Error message</param>
+        /// <exception cref="InvalidOperationException">If the contained value is an Err</exception>
+        public T Expect(string message)
+        {
+            return _isOk ? _value! : throw new InvalidOperationException(message);
+        }
+
+        /// <summary>
+        /// <para>Returns the contained Err value.</para>
+        ///
+        /// <para>Throws a specified error message if the contained value is Ok</para> 
+        /// </summary>
+        /// <param name="message">Error message</param>
+        /// <returns>The contained Err value</returns>
+        /// <exception cref="InvalidOperationException">If the contained value is Ok</exception>
+        public E ExpectErr(string message)
+        {
+            return !_isOk ? Error! : throw new InvalidOperationException(message);
         }
     }
 
