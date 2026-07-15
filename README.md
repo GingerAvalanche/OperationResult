@@ -97,14 +97,16 @@ Result<ErrorStack> res = Err(
   )
 );
 res.Context("This is some friendly context!");
+res.Context("This shows that context is printed outer-level first!");
 
 Console.WriteLine(res.Err().ToString()); // Prints the following:
 /*
 This is the user-facing error message.
 
 Caused by:
-  0. This is some friendly context!
-  1. Exception: This generates a stack trace.
+  0. This shows that context is printed outer-level first!
+  1. This is some friendly context!
+  2. Exception: This generates a stack trace.
 */
 
 Console.WriteLine(res.Err().Stack); // Prints the standard C# stack trace
