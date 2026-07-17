@@ -31,8 +31,8 @@ public static class Extensions
     /// <typeparam name="T"></typeparam>
     /// <typeparam name="E"></typeparam>
     /// <returns></returns>
-    public static Result<T, E>? Transpose<T, E>(this Result<T?, E> result)
-    {
-        return result.IsErr() ? Helpers.Err(result.Error!) : result.Value;
-    }
+    // public static Result<T, E>? Transpose<T, E>(this Result<T?, E> result)
+    // {
+    //     return result.IsErr() ? Helpers.Err(result.Error!) : result.Value;
+    // }
 }

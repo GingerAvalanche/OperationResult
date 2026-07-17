@@ -8,7 +8,7 @@ namespace OperationResult
     /// <summary>
     /// Result of operation (no result type, only Error field)
     /// </summary>
-    public readonly struct Result<E>
+    public readonly ref struct Result<E>
     {
         private readonly E? _error;
         private readonly bool _isOk;
@@ -267,9 +267,9 @@ namespace OperationResult
     /// </summary>
     /// <typeparam name="T">Type of Value field</typeparam>
     /// <typeparam name="E">Type of Error field</typeparam>
-    public readonly struct Result<T, E>
+    public readonly ref struct Result<T, E>
     {
-        private readonly T? _value;
+        private readonly ref T? _value;
         internal readonly E? Error;
         private readonly bool _isOk;
 
