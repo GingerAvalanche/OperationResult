@@ -316,6 +316,11 @@ namespace OperationResult
             return Helpers.Err(Error!);
         }
 
+        private RefResult<U, E> ConvertRefError<U>() where U : allows ref struct
+        {
+            return Helpers.Err(Error!);
+        }
+
         /// <summary>
         /// <para>Returns true if the result is Err.</para>
         /// </summary>
@@ -384,7 +389,21 @@ namespace OperationResult
         /// <returns></returns>
         public Result<U, E> And<U>(Result<U, E> res)
         {
-            return _isOk && res._isOk || _isOk ? res : ConvertError<U>();
+            return _isOk ? res : ConvertError<U>();
+        }
+
+        /// <summary>
+        /// <para>Returns res if the result is Ok, otherwise returns the Err value of self.</para>
+        ///
+        /// <para>Arguments passed to And are eagerly evaluated; if you are passing the result of a function call, it
+        /// is recommended to use AndThen, which is lazily evaluated.</para>
+        /// </summary>
+        /// <param name="res"></param>
+        /// <typeparam name="U"></typeparam>
+        /// <returns></returns>
+        public RefResult<U, E> And<U>(RefResult<U, E> res) where U : allows ref struct
+        {
+            return _isOk ? res : ConvertRefError<U>();
         }
 
         /// <summary>
@@ -398,6 +417,19 @@ namespace OperationResult
         public Result<U, E> AndThen<U>(Func<T, Result<U, E>> f)
         {
             return _isOk ? f(_value!) : ConvertError<U>();
+        }
+
+        /// <summary>
+        /// <para>Calls f if the result is Ok, otherwise returns the Err value of self.</para>
+        ///
+        /// <para>This function can be used for control flow based on Result values.</para>
+        /// </summary>
+        /// <param name="f"></param>
+        /// <typeparam name="U"></typeparam>
+        /// <returns></returns>
+        public RefResult<U, E> AndThen<U>(Func<T, RefResult<U, E>> f) where U : allows ref struct
+        {
+            return _isOk ? f(_value!) : ConvertRefError<U>();
         }
 
         /// <summary>
@@ -463,6 +495,20 @@ namespace OperationResult
         public Result<U, E> Map<U>(Func<T, U> f)
         {
             return _isOk ? f(_value!) : ConvertError<U>();
+        }
+
+        /// <summary>
+        /// <para>Maps a Result&lt;T, E&gt; to RefResult&lt;U, E&gt; by applying a function to a contained Ok value,
+        /// leaving an Err value untouched.</para>
+        ///
+        /// <para>This function can be used to compose the results of two functions.</para>
+        /// </summary>
+        /// <param name="f"></param>
+        /// <typeparam name="U"></typeparam>
+        /// <returns></returns>
+        public RefResult<U, E> MapRef<U>(Func<T, U> f) where U : allows ref struct
+        {
+            return _isOk ? f(_value!) : ConvertRefError<U>();
         }
 
         /// <summary>
